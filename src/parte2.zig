@@ -1,3 +1,4 @@
+// Parte 2 - Funções de alta ordem
 const std = @import("std");
 
 // Função genérica para pegar o máximo
