@@ -1,57 +1,36 @@
-// Parte 2 - Funções de alta ordem
 const std = @import("std");
 
-// Função genérica para pegar o máximo
-pub fn maximo(a: anytype, b: anytype) @TypeOf(a) {
-    return if (a > b) a else b;
+// Estrutura para passar dados para a thread
+const DownloadTask = struct {
+    url: []const u8,
+    delay_ms: u64,
+};
+
+// Função que simula o download de uma URL
+fn fetchUrl(task: DownloadTask) void {
+    std.log.info("Iniciando download: {s}", .{task.url});
+
+    // Simula o tempo de download
+    std.Thread.sleep(task.delay_ms * std.time.ns_per_ms);
+
+    std.log.info("Concluído: {s}", .{task.url});
 }
 
-// Função genérica para pegar o mínimo
-pub fn minimo(a: anytype, b: anytype) @TypeOf(a) {
-    return if (a < b) a else b;
-}
+// Função pública que executa o exemplo de concorrência
+pub fn run_concurrent_example() !void {
+    std.log.info("Iniciando tarefas concorrentes...", .{});
 
-// Função de potência (somente inteiros)
-pub fn potencia(a: anytype, b: anytype) @TypeOf(a) {
-    var resultado = a;
-    if (b == 0) return 1;
-    var i: usize = 1;
-    while (i < b) : (i += 1) {
-        resultado *= a;
-    }
-    return resultado;
-}
+    // Cria duas tasks
+    const task1 = DownloadTask{ .url = "site-lento.com", .delay_ms = 2000 };
+    const task2 = DownloadTask{ .url = "site-rapido.com", .delay_ms = 1000 };
 
-// Função de alta ordem genérica
-pub fn aplicarOperacao(comptime T: type, a: T, b: T, operacao: anytype) T {
-    std.debug.print("Executando operação...\n", .{});
-    return operacao(a, b);
-}
+    // Cria duas threads para executar as tasks em paralelo
+    const thread1 = try std.Thread.spawn(.{}, fetchUrl, .{task1});
+    const thread2 = try std.Thread.spawn(.{}, fetchUrl, .{task2});
 
-// Map: dobra os valores
-pub fn mapDouble(input: []const i32, output: []i32) void {
-    for (input, 0..) |item, i| {
-        output[i] = item * 2;
-    }
-}
+    // Aguarda ambas as threads terminarem
+    thread1.join();
+    thread2.join();
 
-// Filter: mantem apenas os pares
-pub fn filterEven(input: []const i32, output: []i32) usize {
-    var count: usize = 0;
-    for (input) |item| {
-        if (@rem(item, 2) == 0) {
-            output[count] = item;
-            count += 1;
-        }
-    }
-    return count;
-}
-
-// Reduce: soma todos os valores
-pub fn reduceSum(input: []const i32) i32 {
-    var sum: i32 = 0;
-    for (input) |item| {
-        sum += item;
-    }
-    return sum;
+    std.log.info("Todas as tarefas concluídas.", .{});
 }
