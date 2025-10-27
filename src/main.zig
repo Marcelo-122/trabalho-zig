@@ -1,51 +1,58 @@
 // src/main.zig --> pra rodar só colocar zig build run
 const std = @import("std");
-const parte1 = @import("parte1.zig");
-const parte2 = @import("parte2.zig");
-const builtin = @import("builtin");
-const native_arch = builtin.cpu.arch;
-const expect = std.testing.expect;
 
-pub fn main() void {
-    const num1: i32 = 10;
-    const num2: i32 = 5;
-    // Parte 1
-    std.debug.print("Parte 1\n: ", .{});
-    // Passamos a função 'somar' como parâmetro. Note o '&' para pegar o endereço.
-    const resultadoSoma = parte1.executarOperacao(num1, num2, &parte1.somar);
-    std.debug.print("Resultado da soma: {}\n", .{resultadoSoma});
+// --- Compartilhamento de Memória ---
+// Esta variável global será compartilhada entre a thread 'main'
+// e todas as threads que gerarmos.
+var g_counter: u32 = 0;
 
-    // Agora, passamos a função 'multiplicar'.
-    const resultadoMult = parte1.executarOperacao(num1, num2, &parte1.multiplicar);
-    std.debug.print("Resultado da multiplicação: {}\n", .{resultadoMult});
+// --- Sincronização de Threads ---
+// Precisamos de um Mutex para proteger o 'g_counter'.
+// Sem ele, teríamos uma "condição de corrida" (data race),
+// pois várias threads tentariam ler e escrever 'g_counter' ao mesmo tempo.
+var g_mutex = std.Thread.Mutex{};
 
-    // Parte 2
-    //AplicarOperacao utiliza polimorfismo para aceitar diferentes tipos e operações.
-    const r1 = parte2.aplicarOperacao(i32, 10, 7, parte2.maximo);
-    std.debug.print("Máximo: {d}\n", .{r1});
+// Esta é a função que cada thread irá executar.
+fn thread_worker() void {
+    var i: u32 = 0;
+    while (i < 100_000) : (i += 1) {
+        // 1. Trava o mutex. Só uma thread pode passar daqui por vez.
+        g_mutex.lock();
 
-    const r2 = parte2.aplicarOperacao(i32, 10, 7, parte2.minimo);
-    std.debug.print("Mínimo: {d}\n", .{r2});
+        // 2. Seção Crítica: Acessa a memória compartilhada
+        g_counter += 1;
 
-    const r3 = parte2.aplicarOperacao(i32, 2, 5, parte2.potencia);
-    std.debug.print("Potência: {d}\n", .{r3});
+        // 3. Libera o mutex. Outra thread agora pode entrar.
+        g_mutex.unlock();
+    }
+}
 
-    std.debug.print("Parte 2:\n", .{});
-    // Exemplos simples de Map, Filter e Reduce
-    var input = [_]i32{ 1, 2, 3, 4, 5 };
-    var mapped = [_]i32{0} ** 5;
+pub fn main() !void {
+    const num_threads = 10;
+    var threads: [num_threads]std.Thread = undefined;
 
-    parte2.mapDouble(&input, &mapped);
-    std.debug.print("Map (dobro): ", .{});
-    for (mapped) |v| std.debug.print("{d} ", .{v});
-    std.debug.print("\n", .{});
+    std.log.info("Thread 'main' iniciando...", .{});
 
-    var filtered = [_]i32{0} ** 5;
-    const filtered_count = parte2.filterEven(&input, &filtered);
-    std.debug.print("Filter (pares): ", .{});
-    for (filtered[0..filtered_count]) |v| std.debug.print("{d} ", .{v});
-    std.debug.print("\n", .{});
+    // --- Como gero threads? ---
+    // Usamos 'std.Thread.spawn()' em um loop para criar 10 threads.
+    // Cada thread executará a função 'thread_worker'.
+    std.log.info("Gerando {} threads...", .{num_threads});
+    for (&threads) |*t| {
+        // '.{}' são as opções padrão
+        // 'thread_worker' é a função
+        // '.{}' são os argumentos (nenhum neste caso)
+        t.* = try std.Thread.spawn(.{}, thread_worker, .{});
+    }
 
-    const reduced = parte2.reduceSum(&input);
-    std.debug.print("Reduce (soma): {d}\n", .{reduced});
+    std.log.info("Aguardando todas as threads terminarem (join)...", .{});
+    // 'wait()' é o 'join'. A thread 'main' pausa e espera
+    // que cada thread filha termine sua execução.
+    for (threads) |t| {
+        t.join();
+    }
+
+    // Graças ao Mutex (sincronização), o resultado deve ser
+    // exatamente 10 * 100.000 = 1.000.000.
+    std.log.info("Todas as threads terminaram.", .{});
+    std.log.info("Valor final do contador (deve ser 1.000.000): {}", .{g_counter});
 }
