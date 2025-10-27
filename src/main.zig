@@ -4,13 +4,24 @@ const parte1 = @import("parte1.zig");
 const parte2 = @import("parte2.zig");
 
 pub fn main() !void {
-    // Executa o exemplo de threads do módulo parte1
-    std.log.info("=== Iniciando exemplo de Threads ===\n", .{});
+
+    std.log.info("PARTE 1 - THREADS", .{});
     try parte1.run_threads();
 
-    // Executa o exemplo de concorrência do módulo parte2
-    std.log.info("\n=== Iniciando exemplo de Concorrência ===\n", .{});
+    std.log.info("PARTE 2 - MODELOS DE CONCORRÊNCIA", .{});
+
+    // 1. Concorrência com Threads
+    std.log.info("\n--- 1. Concorrência com Threads ---", .{});
     try parte2.run_concurrent_example();
 
-    std.log.info("\n=== Todos os exemplos foram concluídos ===\n", .{});
+    // 2. Event Loop
+    std.log.info("\n--- 2. Event Loop ---", .{});
+    try parte2.run_event_loop_example();
+
+    // 3. Operações Atômicas
+    std.log.info("\n--- 3. Operações Atômicas ---", .{});
+    try parte2.run_atomic_example();
+
+    std.log.info("TODOS OS EXEMPLOS CONCLUÍDOS", .{});
 }
+
